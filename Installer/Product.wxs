@@ -1,6 +1,6 @@
 ﻿<!-- Upgrade documentation: http://wixtoolset.org/documentation/manual/v3/howtos/updates/major_upgrade.html -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-    <Package Name="File Converter" Language="1033" Version="2.2.0" Manufacturer="Adrien Allard" UpgradeCode="e3ca717b-a897-418a-bbef-5c7e35c76e4b" InstallerVersion="500">
+    <Package Name="File Converter 2.3 CustomVer" Language="1033" Version="2.3.0" Manufacturer="Adrien Allard" UpgradeCode="e3ca717b-a897-418a-bbef-5c7e35c76e4b" InstallerVersion="500">
         <Icon Id="icon.ico" SourceFile="..\Resources\Icons\ApplicationIcon.ico" />
         <Property Id="ARPPRODUCTICON" Value="icon.ico" />
         <SetProperty Id="ARPINSTALLLOCATION" Value="[ApplicationFolder]" After="CostFinalize" />
@@ -98,6 +98,24 @@
             </Component>
             <Component Guid="{101923f7-d0f9-47f5-9c59-13ec5ca81b37}">
                 <File Id="Microsoft.Xaml.Behaviors.dll" Source="$(var.FileConverter.TargetDir)Microsoft.Xaml.Behaviors.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{C89567B6-B203-4E7B-AB6B-70B9314F9BB4}">
+                <File Id="NetOffice.dll" Source="$(var.FileConverter.TargetDir)NetOffice.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{6896A2D4-98CE-4DF1-B2C4-53A2A9DCC603}">
+                <File Id="OfficeApi.dll" Source="$(var.FileConverter.TargetDir)OfficeApi.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{9D67B97C-BA95-4507-948C-E33F50D45757}">
+                <File Id="WordApi.dll" Source="$(var.FileConverter.TargetDir)WordApi.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{5F5077E0-D9A8-47BB-92E1-8D8EB0D4F851}">
+                <File Id="ExcelApi.dll" Source="$(var.FileConverter.TargetDir)ExcelApi.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{943216B0-66DD-45B2-9D8E-99AB71172951}">
+                <File Id="PowerPointApi.dll" Source="$(var.FileConverter.TargetDir)PowerPointApi.dll" KeyPath="yes" Checksum="yes" />
+            </Component>
+            <Component Guid="{D2E40710-61E2-4884-A756-E43C8329F0F8}">
+                <File Id="VBIDEApi.dll" Source="$(var.FileConverter.TargetDir)VBIDEApi.dll" KeyPath="yes" Checksum="yes" />
             </Component>
             <Component Guid="{e5a7ebe5-30ba-4ee9-be63-f1b39101dff6}">
                 <File Id="System.Buffers.dll" Source="$(var.FileConverter.TargetDir)System.Buffers.dll" KeyPath="yes" Checksum="yes" />

@@ -20,7 +20,7 @@ namespace FileConverter.ValueConverters
             ConversionState state = (ConversionState)values[0];
             DateTime startTime = (DateTime)values[1];
             float progress = (float)values[2];
-            if (progress <= 0f)
+            if (progress <= 0f || float.IsNaN(progress) || float.IsInfinity(progress))
             {
                 return string.Empty;
             }
@@ -40,6 +40,11 @@ namespace FileConverter.ValueConverters
             }
 
             double remainingTimeInSeconds = (1 - progress) * elapsedTime.TotalSeconds / progress;
+            if (double.IsNaN(remainingTimeInSeconds) || double.IsInfinity(remainingTimeInSeconds) || remainingTimeInSeconds < 0d)
+            {
+                return string.Empty;
+            }
+
             TimeSpan remainingTime = TimeSpan.FromSeconds(Math.Floor(remainingTimeInSeconds));
             return "~" + remainingTime.ToString("g");
         }

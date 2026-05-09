@@ -4,6 +4,8 @@ namespace FileConverter.ConversionJobs
 {
     using System;
     using System.IO;
+    using System.Runtime.InteropServices;
+    using System.Threading;
     using System.Threading.Tasks;
 
     using FileConverter.Diagnostics;
@@ -12,6 +14,12 @@ namespace FileConverter.ConversionJobs
 
     public class ConversionJob_Word : ConversionJob_Office
     {
+        private const int OfficeRetryCount = 20;
+        private const int OfficeRetryDelayInMilliseconds = 250;
+        private const int RpcCallRejected = unchecked((int)0x80010001);
+        private const int RpcServerCallRetryLater = unchecked((int)0x8001010A);
+        private const int VbaIgnore = unchecked((int)0x800AC472);
+
         private Word.Document document;
         private Word.Application application;
 
@@ -37,14 +45,28 @@ namespace FileConverter.ConversionJobs
                 return 1;
             }
 
-            if (!this.TryLoadDocumentIfNecessary())
+            try
             {
+                if (!this.TryLoadDocumentIfNecessary())
+                {
+                    return 1;
+                }
+
+                int pagesCount = this.ExecuteWordOperation(() => this.document.ComputeStatistics(Word.Enums.WdStatistic.wdStatisticPages));
+
+                return pagesCount;
+            }
+            catch (Exception exception)
+            {
+                Debug.Log(exception.ToString());
+
                 return 1;
             }
-
-            int pagesCount = this.document.ComputeStatistics(Word.Enums.WdStatistic.wdStatisticPages);
-
-            return pagesCount;
+            finally
+            {
+                this.CloseDocumentIfNeeded();
+                this.ReleaseOfficeApplicationInstanceIfNeeded();
+            }
         }
 
         protected override void Initialize()
@@ -88,36 +110,44 @@ namespace FileConverter.ConversionJobs
 
             this.UserState = Properties.Resources.ConversionStateReadDocument;
 
-            if (!this.TryLoadDocumentIfNecessary())
+            try
             {
+                if (!this.TryLoadDocumentIfNecessary())
+                {
+                    this.ConversionFailed(Properties.Resources.ErrorUnableToUseMicrosoftOffice);
+                    return;
+                }
+
+                // Make this document the active document.
+                this.ExecuteWordOperation(() => this.document.Activate());
+
+                this.UserState = Properties.Resources.ConversionStateConversion;
+
+                Debug.Log("Convert word document to pdf.");
+                // this.document.ExportAsFixedFormat(this.intermediateFilePath, Word.WdExportFormat.wdExportFormatPDF);
+                this.ExecuteWordOperation(() => this.document.ExportAsFixedFormat(this.intermediateFilePath,
+                    Word.Enums.WdExportFormat.wdExportFormatPDF,
+                    false,
+                    Word.Enums.WdExportOptimizeFor.wdExportOptimizeForPrint,
+                    Word.Enums.WdExportRange.wdExportAllDocument,
+                    1, 1,
+                    Word.Enums.WdExportItem.wdExportDocumentContent,
+                    true,
+                    true,
+                    Word.Enums.WdExportCreateBookmarks.wdExportCreateHeadingBookmarks,
+                    true));
+            }
+            catch (Exception exception)
+            {
+                Debug.Log(exception.ToString());
                 this.ConversionFailed(Properties.Resources.ErrorUnableToUseMicrosoftOffice);
                 return;
             }
-
-            // Make this document the active document.
-            this.document.Activate();
-
-            this.UserState = Properties.Resources.ConversionStateConversion;
-
-            Debug.Log("Convert word document to pdf.");
-            // this.document.ExportAsFixedFormat(this.intermediateFilePath, Word.WdExportFormat.wdExportFormatPDF);
-            this.document.ExportAsFixedFormat(this.intermediateFilePath, 
-                Word.Enums.WdExportFormat.wdExportFormatPDF, 
-                false, 
-                Word.Enums.WdExportOptimizeFor.wdExportOptimizeForPrint, 
-                Word.Enums.WdExportRange.wdExportAllDocument, 
-                1, 1, 
-                Word.Enums.WdExportItem.wdExportDocumentContent, 
-                true, 
-                true, 
-                Word.Enums.WdExportCreateBookmarks.wdExportCreateHeadingBookmarks, 
-                true);
-
-            Debug.Log($"Close word document '{this.InputFilePath}'.");
-            this.document.Close(Word.Enums.WdSaveOptions.wdDoNotSaveChanges);
-            this.document = null;
-
-            this.ReleaseOfficeApplicationInstanceIfNeeded();
+            finally
+            {
+                this.CloseDocumentIfNeeded();
+                this.ReleaseOfficeApplicationInstanceIfNeeded();
+            }
             
             if (this.pdf2ImageConversionJob != null)
             {
@@ -163,6 +193,11 @@ namespace FileConverter.ConversionJobs
             {
                 Visible = false
             };
+
+            this.ExecuteWordOperation(() =>
+            {
+                this.application.DisplayAlerts = Word.Enums.WdAlertLevel.wdAlertsNone;
+            });
         }
 
         protected override void ReleaseOfficeApplicationInstanceIfNeeded()
@@ -172,9 +207,20 @@ namespace FileConverter.ConversionJobs
                 return;
             }
 
-            Diagnostics.Debug.Log("Quit word application via interop.");
-            this.application.Quit();
-            this.application = null;
+            try
+            {
+                Diagnostics.Debug.Log("Quit word application via interop.");
+                this.ExecuteWordOperation(() => this.application.Quit());
+            }
+            catch (Exception exception)
+            {
+                Debug.Log(exception.ToString());
+            }
+            finally
+            {
+                this.application.Dispose();
+                this.application = null;
+            }
         }
 
         private async Task UpdateProgress()
@@ -218,10 +264,73 @@ namespace FileConverter.ConversionJobs
             {
                 Debug.Log($"Load word document '{this.InputFilePath}'.");
 
-                this.document = this.application.Documents.Open(this.InputFilePath, System.Reflection.Missing.Value, true);
+                this.document = this.ExecuteWordOperation(() => this.application.Documents.Open(this.InputFilePath, System.Reflection.Missing.Value, true, false));
             }
 
             return this.document != null;
+        }
+
+        private void CloseDocumentIfNeeded()
+        {
+            if (this.document == null)
+            {
+                return;
+            }
+
+            try
+            {
+                Debug.Log($"Close word document '{this.InputFilePath}'.");
+                this.ExecuteWordOperation(() => this.document.Close(Word.Enums.WdSaveOptions.wdDoNotSaveChanges));
+            }
+            catch (Exception exception)
+            {
+                Debug.Log(exception.ToString());
+            }
+            finally
+            {
+                this.document.Dispose();
+                this.document = null;
+            }
+        }
+
+        private void ExecuteWordOperation(Action action)
+        {
+            this.ExecuteWordOperation(
+                () =>
+                {
+                    action();
+                    return true;
+                });
+        }
+
+        private T ExecuteWordOperation<T>(Func<T> action)
+        {
+            for (int attempt = 0; attempt < OfficeRetryCount; attempt++)
+            {
+                try
+                {
+                    return action();
+                }
+                catch (COMException exception)
+                {
+                    if (!ConversionJob_Word.IsRetryableOfficeException(exception) || attempt == OfficeRetryCount - 1)
+                    {
+                        throw;
+                    }
+
+                    Debug.Log(exception.ToString());
+                    Thread.Sleep(OfficeRetryDelayInMilliseconds);
+                }
+            }
+
+            return action();
+        }
+
+        private static bool IsRetryableOfficeException(COMException exception)
+        {
+            return exception.ErrorCode == RpcCallRejected ||
+                   exception.ErrorCode == RpcServerCallRetryLater ||
+                   exception.ErrorCode == VbaIgnore;
         }
     }
 }

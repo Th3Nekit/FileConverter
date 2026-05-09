@@ -17,7 +17,7 @@ namespace FileConverter.ValueConverters
 
             FileConverter.Version version = (FileConverter.Version)value;
 
-            return $"File Converter v{version}";
+            return $"File Converter v{version} {FileConverter.Application.ApplicationVersionSuffix}";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

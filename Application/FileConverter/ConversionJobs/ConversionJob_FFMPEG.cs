@@ -14,8 +14,10 @@ namespace FileConverter.ConversionJobs
 
     public partial class ConversionJob_FFMPEG : ConversionJob
     {
-        private readonly Regex durationRegex = new Regex(@"Duration:\s*([0-9][0-9]):([0-9][0-9]):([0-9][0-9])\.([0-9][0-9]),.*bitrate:\s*([0-9]+) kb\/s");
+        private readonly Regex durationRegex = new Regex(@"Duration:\s*([0-9][0-9]):([0-9][0-9]):([0-9][0-9])\.([0-9]+),");
         private readonly Regex progressRegex = new Regex(@"size=\s*([0-9]+).*time=([0-9][0-9]):([0-9][0-9]):([0-9][0-9]).([0-9][0-9])\s+bitrate=\s*([0-9]+.[0-9])");
+        private readonly Regex progressKeyValueRegex = new Regex(@"out_time(?:_ms|_us)=([0-9]+)");
+        private readonly Regex progressFormattedRegex = new Regex(@"out_time=([0-9][0-9]):([0-9][0-9]):([0-9][0-9])\.([0-9]+)");
 
         private TimeSpan fileDuration;
         private TimeSpan actualConvertedDuration;
@@ -261,8 +263,9 @@ namespace FileConverter.ConversionJobs
                         int audioEncodingBitrate = this.ConversionPreset.GetSettingsValue<int>(ConversionPreset.ConversionSettingKeys.AudioBitrate);
 
                         Helpers.HardwareAccelerationMode hwAccel = settingsService.Settings.HardwareAccelerationMode;
+                        Helpers.HardwareAccelerationMode transformHwAccel = hwAccel == Helpers.HardwareAccelerationMode.CUDA ? Helpers.HardwareAccelerationMode.Off : hwAccel;
 
-                        string transformArgs = ConversionJob_FFMPEG.ComputeTransformArgs(this.ConversionPreset, hwAccel);
+                        string transformArgs = ConversionJob_FFMPEG.ComputeTransformArgs(this.ConversionPreset, transformHwAccel);
                         string videoFilteringArgs = ConversionJob_FFMPEG.Encapsulate("-vf", transformArgs);
 
                         string audioArgs = "-an";
@@ -282,7 +285,7 @@ namespace FileConverter.ConversionJobs
                                 int nvencQP = this.H264QualityToCRF(videoEncodingQuality);
                                 videoCodecArgs = $"-preset {this.H264EncodingSpeedToNVENCPreset(videoEncodingSpeed)} -rc constqp -qp {nvencQP}";
 
-                                hwAccelArg = "-hwaccel cuda -hwaccel_output_format cuda";
+                                hwAccelArg = string.Empty;
                                 break;
 
                             case Helpers.HardwareAccelerationMode.AMF:
@@ -444,22 +447,21 @@ namespace FileConverter.ConversionJobs
 
                 try
                 {
-                    using (Process exeProcess = Process.Start(this.ffmpegProcessStartInfo))
+                    using (Process exeProcess = new Process())
                     {
-                        using (StreamReader reader = exeProcess.StandardError)
+                        exeProcess.StartInfo = this.ffmpegProcessStartInfo;
+                        exeProcess.OutputDataReceived += this.OnFFMPEGDataReceived;
+                        exeProcess.ErrorDataReceived += this.OnFFMPEGDataReceived;
+
+                        exeProcess.Start();
+                        exeProcess.BeginOutputReadLine();
+                        exeProcess.BeginErrorReadLine();
+
+                        while (!exeProcess.WaitForExit(100))
                         {
-                            while (!reader.EndOfStream)
+                            if (this.CancelIsRequested && !exeProcess.HasExited)
                             {
-                                if (this.CancelIsRequested && !exeProcess.HasExited)
-                                {
-                                    exeProcess.Kill();
-                                }
-
-                                string result = reader.ReadLine();
-
-                                this.ParseFFMPEGOutput(result);
-
-                                Diagnostics.Debug.Log($"ffmpeg output: {result}");
+                                exeProcess.Kill();
                             }
                         }
 
@@ -493,14 +495,18 @@ namespace FileConverter.ConversionJobs
 
         private void ParseFFMPEGOutput(string input)
         {
+            if (string.IsNullOrEmpty(input))
+            {
+                return;
+            }
+
             Match match = this.durationRegex.Match(input);
-            if (match.Success && match.Groups.Count >= 6)
+            if (match.Success && match.Groups.Count >= 5)
             {
                 int hours = int.Parse(match.Groups[1].Value);
                 int minutes = int.Parse(match.Groups[2].Value);
                 int seconds = int.Parse(match.Groups[3].Value);
-                int milliseconds = int.Parse(match.Groups[4].Value) * 10;
-                float bitrate = float.Parse(match.Groups[5].Value);
+                int milliseconds = ConversionJob_FFMPEG.FractionalSecondsToMilliseconds(match.Groups[4].Value);
                 this.fileDuration = new TimeSpan(0, hours, minutes, seconds, milliseconds);
                 return;
             }
@@ -514,13 +520,31 @@ namespace FileConverter.ConversionJobs
                     int hours = int.Parse(match.Groups[2].Value);
                     int minutes = int.Parse(match.Groups[3].Value);
                     int seconds = int.Parse(match.Groups[4].Value);
-                    int milliseconds = int.Parse(match.Groups[5].Value) * 10;
+                    int milliseconds = ConversionJob_FFMPEG.FractionalSecondsToMilliseconds(match.Groups[5].Value);
                     float bitrate = 0f;
                     float.TryParse(match.Groups[6].Value, out bitrate);
 
-                    this.actualConvertedDuration = new TimeSpan(0, hours, minutes, seconds, milliseconds);
+                    this.UpdateProgress(new TimeSpan(0, hours, minutes, seconds, milliseconds));
+                    return;
+                }
 
-                    this.Progress = this.actualConvertedDuration.Ticks / (float)this.fileDuration.Ticks;
+                match = this.progressFormattedRegex.Match(input);
+                if (match.Success && match.Groups.Count >= 5)
+                {
+                    int hours = int.Parse(match.Groups[1].Value);
+                    int minutes = int.Parse(match.Groups[2].Value);
+                    int seconds = int.Parse(match.Groups[3].Value);
+                    int milliseconds = ConversionJob_FFMPEG.FractionalSecondsToMilliseconds(match.Groups[4].Value);
+
+                    this.UpdateProgress(new TimeSpan(0, hours, minutes, seconds, milliseconds));
+                    return;
+                }
+
+                match = this.progressKeyValueRegex.Match(input);
+                if (match.Success && match.Groups.Count >= 2)
+                {
+                    long microseconds = long.Parse(match.Groups[1].Value);
+                    this.UpdateProgress(TimeSpan.FromMilliseconds(microseconds / 1000d));
                     return;
                 }
             }
@@ -540,6 +564,44 @@ namespace FileConverter.ConversionJobs
                     this.ConversionFailed(input);
                 }
             }
+        }
+
+        private void OnFFMPEGDataReceived(object sender, DataReceivedEventArgs eventArgs)
+        {
+            if (string.IsNullOrEmpty(eventArgs.Data))
+            {
+                return;
+            }
+
+            this.ParseFFMPEGOutput(eventArgs.Data);
+
+            Diagnostics.Debug.Log($"ffmpeg output: {eventArgs.Data}");
+        }
+
+        private static int FractionalSecondsToMilliseconds(string fractionalSeconds)
+        {
+            if (string.IsNullOrEmpty(fractionalSeconds))
+            {
+                return 0;
+            }
+
+            if (fractionalSeconds.Length > 3)
+            {
+                fractionalSeconds = fractionalSeconds.Substring(0, 3);
+            }
+
+            while (fractionalSeconds.Length < 3)
+            {
+                fractionalSeconds += "0";
+            }
+
+            return int.Parse(fractionalSeconds);
+        }
+
+        private void UpdateProgress(TimeSpan convertedDuration)
+        {
+            this.actualConvertedDuration = convertedDuration;
+            this.Progress = this.actualConvertedDuration.Ticks / (float)this.fileDuration.Ticks;
         }
 
         private struct FFMpegPass

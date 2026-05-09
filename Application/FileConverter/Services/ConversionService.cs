@@ -59,6 +59,7 @@ namespace FileConverter.Services
         public void ConvertFilesAsync()
         {
             Thread fileConvertionThread = Helpers.InstantiateThread("ConversionQueueThread", this.ConvertFiles);
+            fileConvertionThread.SetApartmentState(ApartmentState.STA);
             fileConvertionThread.Start();
         }
 
@@ -108,6 +109,7 @@ namespace FileConverter.Services
                             if (thread == null || !thread.IsAlive)
                             {
                                 jobThread = Helpers.InstantiateThread(conversionJob.GetType().Name, this.ExecuteConversionJob);
+                                jobThread.SetApartmentState(ApartmentState.STA);
                                 jobThreads[threadIndex] = jobThread;
                                 break;
                             }

@@ -38,9 +38,10 @@ namespace FileConverter
         private static readonly Version Version = new Version()
                                                       {
                                                           Major = 2,
-                                                          Minor = 2,
+                                                          Minor = 3,
                                                           Patch = 0,
                                                       };
+        public const string ApplicationVersionSuffix = "CustomVer";
 
         private bool needToRunConversionThread;
         private bool cancelAutoExit;
@@ -57,6 +58,8 @@ namespace FileConverter
         public event EventHandler<ApplicationTerminateArgs> OnApplicationTerminate;
 
         public static Version ApplicationVersion => Application.Version;
+
+        public static string ApplicationVersionDisplay => $"{ApplicationVersion} {ApplicationVersionSuffix}";
 
         public static bool IsInAdmininstratorPrivileges
         {
@@ -218,9 +221,9 @@ namespace FileConverter
         private void Initialize()
         {
 #if BUILD32
-            Diagnostics.Debug.Log("File Converter v" + ApplicationVersion.ToString() + " (32 bits)");
+            Diagnostics.Debug.Log("File Converter v" + ApplicationVersionDisplay + " (32 bits)");
 #else
-            Diagnostics.Debug.Log("File Converter v" + ApplicationVersion.ToString() + " (64 bits)");
+            Diagnostics.Debug.Log("File Converter v" + ApplicationVersionDisplay + " (64 bits)");
 #endif
 
             // Retrieve arguments.
@@ -312,7 +315,7 @@ namespace FileConverter
                             }
 
                         case "version":
-                            Console.WriteLine(ApplicationVersion.ToString());
+                            Console.WriteLine(ApplicationVersionDisplay);
                             Application.AskForShutdown();
                             return;
 
