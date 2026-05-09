@@ -10,6 +10,21 @@ You can download it here: [file-converter.io](https://file-converter.io/?from=re
 
 You can find more information about what's in File converter and how to use it on the [wiki](https://github.com/Tichau/FileConverter/wiki).
 
+## File Converter 2.3 CustomVer fork
+
+This fork provides a custom maintenance build based on File Converter 2.2. It focuses on fixing the main regressions reported after the 2.2 release: FFmpeg conversion freezes, video resizing hangs, NVIDIA NVENC scaling failures, and Microsoft Word document conversion crashes/stalls.
+
+Download the custom build here: [FileConverter-2.3-CustomVer-setup.msi](https://github.com/Th3Nekit/FileConverter/releases/download/v2.3-CustomVer/FileConverter-2.3-CustomVer-setup.msi).
+
+Full technical notes are available in [CUSTOMVER_CHANGES.md](CUSTOMVER_CHANGES.md).
+
+### Issues addressed by 2.3 CustomVer
+
+- **Word / Office document conversion crashes and stalls**: [#745](https://github.com/Tichau/FileConverter/issues/745), [#728](https://github.com/Tichau/FileConverter/issues/728), [#717](https://github.com/Tichau/FileConverter/issues/717), [#714](https://github.com/Tichau/FileConverter/issues/714), [#705](https://github.com/Tichau/FileConverter/issues/705), [#631](https://github.com/Tichau/FileConverter/issues/631).
+- **FFmpeg video/audio conversion freezes and hangs**: [#749](https://github.com/Tichau/FileConverter/issues/749), [#739](https://github.com/Tichau/FileConverter/issues/739), [#724](https://github.com/Tichau/FileConverter/issues/724), [#716](https://github.com/Tichau/FileConverter/issues/716), [#700](https://github.com/Tichau/FileConverter/issues/700), [#740](https://github.com/Tichau/FileConverter/issues/740).
+- **MKV/audio conversion regressions related to FFmpeg output/progress handling**: [#729](https://github.com/Tichau/FileConverter/issues/729), [#748](https://github.com/Tichau/FileConverter/issues/748).
+- **NVIDIA NVENC + scaling failure**: [#713](https://github.com/Tichau/FileConverter/issues/713).
+
 ## Donate
 
 File Converter is a personal open source project started in 2014. I have put hundreds of hours adding, refining and tuning File Converter with the goal of making the conversion and compression of files an easy task for everyone.

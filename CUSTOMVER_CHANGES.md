@@ -2,6 +2,13 @@
 
 This fork is based on File Converter 2.2 and contains a custom maintenance build focused on fixing the regressions reported after the 2.2 release.
 
+## Issues addressed
+
+- **Word / Office document conversion crashes and stalls**: [#745](https://github.com/Tichau/FileConverter/issues/745), [#728](https://github.com/Tichau/FileConverter/issues/728), [#717](https://github.com/Tichau/FileConverter/issues/717), [#714](https://github.com/Tichau/FileConverter/issues/714), [#705](https://github.com/Tichau/FileConverter/issues/705), [#631](https://github.com/Tichau/FileConverter/issues/631).
+- **FFmpeg video/audio conversion freezes and hangs**: [#749](https://github.com/Tichau/FileConverter/issues/749), [#739](https://github.com/Tichau/FileConverter/issues/739), [#724](https://github.com/Tichau/FileConverter/issues/724), [#716](https://github.com/Tichau/FileConverter/issues/716), [#700](https://github.com/Tichau/FileConverter/issues/700), [#740](https://github.com/Tichau/FileConverter/issues/740).
+- **MKV/audio conversion regressions related to FFmpeg output/progress handling**: [#729](https://github.com/Tichau/FileConverter/issues/729), [#748](https://github.com/Tichau/FileConverter/issues/748).
+- **NVIDIA NVENC + scaling failure**: [#713](https://github.com/Tichau/FileConverter/issues/713).
+
 ## Fixed
 
 - **FFmpeg video/audio conversion freezes**
